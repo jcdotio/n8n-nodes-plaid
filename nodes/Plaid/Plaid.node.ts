@@ -35,8 +35,8 @@ export class Plaid implements INodeType {
     defaults: {
       name: 'Plaid',
     },
-    inputs: ['main'],
-    outputs: ['main'],
+    inputs: ['main'] as any,
+    outputs: ['main'] as any,
     credentials: [
       {
         name: 'plaidApi',
@@ -460,10 +460,10 @@ export class Plaid implements INodeType {
               access_token: credentials.accessToken as string,
               cursor: cursor || undefined,
               count: limit,
-            };
+            } as any;
 
             if (accountIds) {
-              request.account_ids = accountIds.split(',').map(id => id.trim());
+              (request as any).account_ids = accountIds.split(',').map(id => id.trim());
             }
 
             if (additionalFields.includeOriginalDescription) {
@@ -545,10 +545,10 @@ export class Plaid implements INodeType {
               end_date: endDate.split('T')[0],
               count: limit,
               offset: 0,
-            };
+            } as any;
 
             if (accountIds) {
-              request.account_ids = accountIds.split(',').map(id => id.trim());
+              (request as any).account_ids = accountIds.split(',').map(id => id.trim());
             }
 
             if (additionalFields.includeOriginalDescription) {
@@ -611,7 +611,7 @@ export class Plaid implements INodeType {
                   mask: account.mask,
                   balances: account.balances,
                   verification_status: account.verification_status,
-                  class_type: account.class_type,
+                  class_type: (account as any).class_type,
                   // Metadata
                   source: 'plaid_accounts',
                   processed_at: new Date().toISOString(),
@@ -657,7 +657,7 @@ export class Plaid implements INodeType {
             
             for (const account of response.data.accounts) {
               const authNumbers = response.data.numbers.ach?.find(
-                ach => ach.account_id === account.account_id
+                (ach: any) => ach.account_id === account.account_id
               );
               
               returnData.push({
