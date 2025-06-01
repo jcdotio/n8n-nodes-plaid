@@ -1,7 +1,8 @@
 # n8n-nodes-plaid
 
 [![Test Suite](https://github.com/jcdotio/n8n-nodes-plaid/workflows/Test%20Suite/badge.svg)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/badge/coverage-73%25-green)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/tests-59%2F59%20passing-brightgreen)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
 [![npm version](https://img.shields.io/npm/v/n8n-nodes-plaid.svg)](https://www.npmjs.com/package/n8n-nodes-plaid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
