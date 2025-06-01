@@ -1,10 +1,24 @@
 import { PlaidHelpers } from '../../utils/PlaidHelpers';
+import { 
+  createLinkToken, 
+  exchangePublicToken, 
+  getAccessToken, 
+  requiresAccessToken 
+} from '../../utils/PlaidHelpers';
 
-// Mock the plaid module for environment URLs
+// Mock the plaid module for environment URLs and API client
 jest.mock('plaid', () => ({
   PlaidEnvironments: {
     production: 'https://production.plaid.com',
     sandbox: 'https://sandbox.plaid.com',
+  },
+  Products: {
+    Transactions: 'transactions',
+    Auth: 'auth',
+    Identity: 'identity',
+    Assets: 'assets',
+    Investments: 'investments',
+    Liabilities: 'liabilities',
   },
 }));
 
@@ -242,6 +256,269 @@ describe('PlaidHelpers', () => {
     it('should round to one decimal place', () => {
       // 333.33 / 100 * 1.3 = 4.333... should round to 4.3
       expect(PlaidHelpers.calculateSpendingScore(333.33, ['Recreation'])).toBe(4.3);
+    });
+  });
+
+  // Tests for new authentication functions
+  describe('Authentication Functions', () => {
+    let mockPlaidClient: any;
+
+    beforeEach(() => {
+      mockPlaidClient = {
+        linkTokenCreate: jest.fn(),
+        itemPublicTokenExchange: jest.fn(),
+      };
+    });
+
+    describe('createLinkToken', () => {
+      it('should create link token with default parameters', async () => {
+        const mockResponse = {
+          data: {
+            link_token: 'link-sandbox-test-token',
+          },
+        };
+        mockPlaidClient.linkTokenCreate.mockResolvedValue(mockResponse);
+
+        const credentials = {
+          clientName: 'Test App',
+          countryCodes: 'US',
+          language: 'en',
+        };
+
+        const result = await createLinkToken(mockPlaidClient, credentials);
+
+        expect(result).toBe('link-sandbox-test-token');
+        expect(mockPlaidClient.linkTokenCreate).toHaveBeenCalledWith({
+          client_name: 'Test App',
+          country_codes: ['US'],
+          language: 'en',
+          user: {
+            client_user_id: 'default_user',
+          },
+          products: ['transactions', 'auth'],
+        });
+      });
+
+      it('should create link token with custom parameters', async () => {
+        const mockResponse = {
+          data: {
+            link_token: 'link-custom-token',
+          },
+        };
+        mockPlaidClient.linkTokenCreate.mockResolvedValue(mockResponse);
+
+        const credentials = {
+          clientName: 'Custom App',
+          countryCodes: 'US,CA,GB',
+          language: 'es',
+        };
+
+        const result = await createLinkToken(
+          mockPlaidClient, 
+          credentials,
+          'user_123',
+          ['transactions', 'identity', 'auth']
+        );
+
+        expect(result).toBe('link-custom-token');
+        expect(mockPlaidClient.linkTokenCreate).toHaveBeenCalledWith({
+          client_name: 'Custom App',
+          country_codes: ['US', 'CA', 'GB'],
+          language: 'es',
+          user: {
+            client_user_id: 'user_123',
+          },
+          products: ['transactions', 'identity', 'auth'],
+        });
+      });
+
+      it('should handle default values when credentials are missing', async () => {
+        const mockResponse = {
+          data: {
+            link_token: 'link-default-token',
+          },
+        };
+        mockPlaidClient.linkTokenCreate.mockResolvedValue(mockResponse);
+
+        const credentials = {}; // Empty credentials
+
+        const result = await createLinkToken(mockPlaidClient, credentials);
+
+        expect(result).toBe('link-default-token');
+        expect(mockPlaidClient.linkTokenCreate).toHaveBeenCalledWith({
+          client_name: 'n8n Plaid Integration',
+          country_codes: ['US'],
+          language: 'en',
+          user: {
+            client_user_id: 'default_user',
+          },
+          products: ['transactions', 'auth'],
+        });
+      });
+
+      it('should convert string products to Products enum correctly', async () => {
+        const mockResponse = {
+          data: {
+            link_token: 'link-products-token',
+          },
+        };
+        mockPlaidClient.linkTokenCreate.mockResolvedValue(mockResponse);
+
+        const credentials = {};
+        
+        await createLinkToken(
+          mockPlaidClient, 
+          credentials,
+          'user_123',
+          ['transactions', 'auth', 'identity', 'assets', 'investments', 'liabilities', 'unknown']
+        );
+
+        expect(mockPlaidClient.linkTokenCreate).toHaveBeenCalledWith({
+          client_name: 'n8n Plaid Integration',
+          country_codes: ['US'],
+          language: 'en',
+          user: {
+            client_user_id: 'user_123',
+          },
+          products: ['transactions', 'auth', 'identity', 'assets', 'investments', 'liabilities', 'transactions'], // unknown maps to transactions
+        });
+      });
+    });
+
+    describe('exchangePublicToken', () => {
+      it('should exchange public token for access token', async () => {
+        const mockResponse = {
+          data: {
+            access_token: 'access-sandbox-test-token',
+            item_id: 'item_123456',
+          },
+        };
+        mockPlaidClient.itemPublicTokenExchange.mockResolvedValue(mockResponse);
+
+        const result = await exchangePublicToken(mockPlaidClient, 'public-sandbox-token');
+
+        expect(result).toEqual({
+          accessToken: 'access-sandbox-test-token',
+          itemId: 'item_123456',
+        });
+        expect(mockPlaidClient.itemPublicTokenExchange).toHaveBeenCalledWith({
+          public_token: 'public-sandbox-token',
+        });
+      });
+
+      it('should handle exchange errors', async () => {
+        const mockError = new Error('Invalid public token');
+        mockPlaidClient.itemPublicTokenExchange.mockRejectedValue(mockError);
+
+        await expect(exchangePublicToken(mockPlaidClient, 'invalid-token'))
+          .rejects.toThrow('Invalid public token');
+      });
+    });
+
+    describe('getAccessToken', () => {
+      it('should return access token for legacy authMethod', async () => {
+        const credentials = {
+          authMethod: 'accessToken',
+          accessToken: 'access-legacy-token',
+        };
+
+        const result = await getAccessToken(mockPlaidClient, credentials);
+
+        expect(result).toBe('access-legacy-token');
+      });
+
+      it('should throw error for legacy authMethod without access token', async () => {
+        const credentials = {
+          authMethod: 'accessToken',
+        };
+
+        await expect(getAccessToken(mockPlaidClient, credentials))
+          .rejects.toThrow('Access token is required for legacy authentication method');
+      });
+
+      it('should exchange public token for publicToken authMethod', async () => {
+        const mockResponse = {
+          data: {
+            access_token: 'access-from-public-token',
+            item_id: 'item_789',
+          },
+        };
+        mockPlaidClient.itemPublicTokenExchange.mockResolvedValue(mockResponse);
+
+        const credentials = {
+          authMethod: 'publicToken',
+          publicToken: 'public-test-token',
+        };
+
+        const result = await getAccessToken(mockPlaidClient, credentials);
+
+        expect(result).toBe('access-from-public-token');
+        expect(mockPlaidClient.itemPublicTokenExchange).toHaveBeenCalledWith({
+          public_token: 'public-test-token',
+        });
+      });
+
+      it('should throw error for publicToken authMethod without public token', async () => {
+        const credentials = {
+          authMethod: 'publicToken',
+        };
+
+        await expect(getAccessToken(mockPlaidClient, credentials))
+          .rejects.toThrow('Public token is required for public token exchange method');
+      });
+
+      it('should throw error for clientOnly authMethod', async () => {
+        const credentials = {
+          authMethod: 'clientOnly',
+        };
+
+        await expect(getAccessToken(mockPlaidClient, credentials))
+          .rejects.toThrow('Access token not available for client-only authentication method');
+      });
+
+      it('should throw error for unknown authMethod', async () => {
+        const credentials = {
+          authMethod: 'unknown',
+        };
+
+        await expect(getAccessToken(mockPlaidClient, credentials))
+          .rejects.toThrow('Unknown authentication method: unknown');
+      });
+
+      it('should default to accessToken authMethod when not specified', async () => {
+        const credentials = {
+          accessToken: 'default-access-token',
+        };
+
+        const result = await getAccessToken(mockPlaidClient, credentials);
+
+        expect(result).toBe('default-access-token');
+      });
+    });
+
+    describe('requiresAccessToken', () => {
+      it('should return false for operations that do not require access token', () => {
+        expect(requiresAccessToken('link', 'createToken')).toBe(false);
+        expect(requiresAccessToken('link', 'exchangeToken')).toBe(false);
+        expect(requiresAccessToken('institution', 'search')).toBe(false);
+        expect(requiresAccessToken('institution', 'getById')).toBe(false);
+      });
+
+      it('should return true for operations that require access token', () => {
+        expect(requiresAccessToken('transaction', 'sync')).toBe(true);
+        expect(requiresAccessToken('transaction', 'getRange')).toBe(true);
+        expect(requiresAccessToken('account', 'getAll')).toBe(true);
+        expect(requiresAccessToken('account', 'getBalances')).toBe(true);
+        expect(requiresAccessToken('auth', 'get')).toBe(true);
+        expect(requiresAccessToken('item', 'get')).toBe(true);
+        expect(requiresAccessToken('item', 'remove')).toBe(true);
+        expect(requiresAccessToken('identity', 'get')).toBe(true);
+      });
+
+      it('should return true for unknown operations by default', () => {
+        expect(requiresAccessToken('unknown', 'operation')).toBe(true);
+        expect(requiresAccessToken('transaction', 'unknown')).toBe(true);
+      });
     });
   });
 }); 
