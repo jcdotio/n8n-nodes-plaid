@@ -23,6 +23,12 @@ import {
   CountryCode,
 } from 'plaid';
 
+import {
+  createLinkToken,
+  exchangePublicToken,
+  getAccessToken,
+} from '../../utils/PlaidHelpers';
+
 export class Plaid implements INodeType {
   description: INodeTypeDescription = {
     displayName: 'Plaid',
@@ -51,6 +57,11 @@ export class Plaid implements INodeType {
         type: 'options',
         noDataExpression: true,
         options: [
+          {
+            name: 'Link',
+            value: 'link',
+            description: 'Create Link tokens and handle authentication flow',
+          },
           {
             name: 'Transaction',
             value: 'transaction',
@@ -83,6 +94,34 @@ export class Plaid implements INodeType {
           },
         ],
         default: 'transaction',
+      },
+
+      // Link operations
+      {
+        displayName: 'Operation',
+        name: 'operation',
+        type: 'options',
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ['link'],
+          },
+        },
+        options: [
+          {
+            name: 'Create Link Token',
+            value: 'createToken',
+            description: 'Create a Link token for frontend initialization',
+            action: 'Create Link token',
+          },
+          {
+            name: 'Exchange Public Token',
+            value: 'exchangeToken',
+            description: 'Exchange a public token for an access token',
+            action: 'Exchange public token',
+          },
+        ],
+        default: 'createToken',
       },
 
       // Transaction operations
@@ -239,6 +278,108 @@ export class Plaid implements INodeType {
           },
         ],
         default: 'get',
+      },
+
+      // Link operation parameters
+      {
+        displayName: 'User ID',
+        name: 'userId',
+        type: 'string',
+        displayOptions: {
+          show: {
+            resource: ['link'],
+            operation: ['createToken'],
+          },
+        },
+        default: 'default_user',
+        description: 'Unique identifier for the user in your system',
+      },
+      {
+        displayName: 'Products',
+        name: 'products',
+        type: 'multiOptions',
+        displayOptions: {
+          show: {
+            resource: ['link'],
+            operation: ['createToken'],
+          },
+        },
+        options: [
+          { name: 'Transactions', value: 'transactions' },
+          { name: 'Auth', value: 'auth' },
+          { name: 'Identity', value: 'identity' },
+          { name: 'Assets', value: 'assets' },
+          { name: 'Investments', value: 'investments' },
+          { name: 'Liabilities', value: 'liabilities' },
+        ],
+        default: ['transactions', 'auth'],
+        description: 'Plaid products to enable for this Link token',
+      },
+      {
+        displayName: 'Public Token',
+        name: 'publicTokenInput',
+        type: 'string',
+        displayOptions: {
+          show: {
+            resource: ['link'],
+            operation: ['exchangeToken'],
+          },
+        },
+        required: true,
+        default: '',
+        description: 'Public token received from Plaid Link frontend',
+      },
+
+      // Institution operation parameters
+      {
+        displayName: 'Search Query',
+        name: 'searchQuery',
+        type: 'string',
+        displayOptions: {
+          show: {
+            resource: ['institution'],
+            operation: ['search'],
+          },
+        },
+        required: true,
+        default: '',
+        description: 'Search term for finding institutions (e.g., "Chase", "Bank of America")',
+      },
+      {
+        displayName: 'Institution ID',
+        name: 'institutionId',
+        type: 'string',
+        displayOptions: {
+          show: {
+            resource: ['institution'],
+            operation: ['getById'],
+          },
+        },
+        required: true,
+        default: '',
+        description: 'Plaid institution ID (e.g., ins_109508)',
+      },
+      {
+        displayName: 'Country Code',
+        name: 'countryCode',
+        type: 'options',
+        displayOptions: {
+          show: {
+            resource: ['institution'],
+          },
+        },
+        options: [
+          { name: 'United States', value: 'US' },
+          { name: 'Canada', value: 'CA' },
+          { name: 'United Kingdom', value: 'GB' },
+          { name: 'France', value: 'FR' },
+          { name: 'Germany', value: 'DE' },
+          { name: 'Spain', value: 'ES' },
+          { name: 'Italy', value: 'IT' },
+          { name: 'Netherlands', value: 'NL' },
+        ],
+        default: 'US',
+        description: 'Country code for institution search',
       },
 
       // Cursor for transaction sync
@@ -447,7 +588,47 @@ export class Plaid implements INodeType {
 
     for (let i = 0; i < items.length; i++) {
       try {
-        if (resource === 'transaction') {
+        if (resource === 'link') {
+          if (operation === 'createToken') {
+            // Create Link token for frontend initialization
+            const userId = this.getNodeParameter('userId', i) as string;
+            const products = this.getNodeParameter('products', i) as string[];
+
+            const linkToken = await createLinkToken(client, credentials, userId, products);
+            
+            returnData.push({
+              json: {
+                link_token: linkToken,
+                user_id: userId,
+                products: products,
+                environment: credentials.environment,
+                expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4 hours from now
+                created_at: new Date().toISOString(),
+                source: 'plaid_link_token',
+              },
+              pairedItem: { item: i },
+            });
+
+          } else if (operation === 'exchangeToken') {
+            // Exchange public token for access token
+            const publicToken = this.getNodeParameter('publicTokenInput', i) as string;
+            
+            const { accessToken, itemId } = await exchangePublicToken(client, publicToken);
+            
+            returnData.push({
+              json: {
+                access_token: accessToken,
+                item_id: itemId,
+                public_token: publicToken,
+                environment: credentials.environment,
+                exchanged_at: new Date().toISOString(),
+                source: 'plaid_token_exchange',
+              },
+              pairedItem: { item: i },
+            });
+          }
+
+        } else if (resource === 'transaction') {
           if (operation === 'sync') {
             // Modern transaction sync using cursor
             const cursor = this.getNodeParameter('cursor', i, '') as string;
@@ -456,8 +637,11 @@ export class Plaid implements INodeType {
             const accountIds = this.getNodeParameter('accountIds', i, '') as string;
             const additionalFields = this.getNodeParameter('additionalFields', i, {}) as any;
 
+            // Get access token using modern authentication flow
+            const accessToken = await getAccessToken(client, credentials);
+
             const request: TransactionsSyncRequest = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
               cursor: cursor || undefined,
               count: limit,
             } as any;
@@ -540,8 +724,11 @@ export class Plaid implements INodeType {
             const accountIds = this.getNodeParameter('accountIds', i, '') as string;
             const additionalFields = this.getNodeParameter('additionalFields', i, {}) as any;
 
+            // Get access token using modern authentication flow
+            const accessToken = await getAccessToken(client, credentials);
+
             const request: TransactionsGetRequest = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
               start_date: startDate.split('T')[0],
               end_date: endDate.split('T')[0],
               count: limit,
@@ -594,8 +781,10 @@ export class Plaid implements INodeType {
         } else if (resource === 'account') {
           if (operation === 'getAll') {
             // Get all accounts (cached)
+            const accessToken = await getAccessToken(client, credentials);
+            
             const request: AccountsGetRequest = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
             };
 
             const response = await client.accountsGet(request);
@@ -623,8 +812,10 @@ export class Plaid implements INodeType {
             
           } else if (operation === 'getBalances') {
             // Get real-time balances
+            const accessToken = await getAccessToken(client, credentials);
+            
             const request: AccountsBalanceGetRequest = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
             };
 
             const response = await client.accountsBalanceGet(request);
@@ -650,8 +841,10 @@ export class Plaid implements INodeType {
         } else if (resource === 'auth') {
           if (operation === 'get') {
             // Get auth data (routing/account numbers)
+            const accessToken = await getAccessToken(client, credentials);
+            
             const request: AuthGetRequest = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
             };
 
             const response = await client.authGet(request);
@@ -753,8 +946,10 @@ export class Plaid implements INodeType {
         } else if (resource === 'item') {
           if (operation === 'get') {
             // Get item information
+            const accessToken = await getAccessToken(client, credentials);
+            
             const request: ItemGetRequest = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
             };
 
             const response = await client.itemGet(request);
@@ -781,8 +976,10 @@ export class Plaid implements INodeType {
             
           } else if (operation === 'remove') {
             // Remove item (disconnect bank)
+            const accessToken = await getAccessToken(client, credentials);
+            
             const request = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
             };
 
             const response = await client.itemRemove(request);
@@ -802,8 +999,10 @@ export class Plaid implements INodeType {
         } else if (resource === 'identity') {
           if (operation === 'get') {
             // Get identity data
+            const accessToken = await getAccessToken(client, credentials);
+            
             const request: IdentityGetRequest = {
-              access_token: credentials.accessToken as string,
+              access_token: accessToken,
             };
 
             const response = await client.identityGet(request);
