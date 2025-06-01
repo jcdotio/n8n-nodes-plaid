@@ -184,4 +184,18 @@ export const mockPlaidApiError = {
     status: 400,
   },
   message: 'Request failed with status code 400',
+};
+
+// Mock Plaid client with all methods
+export const mockPlaidClient = {
+  transactionsSync: jest.fn(),
+  transactionsGet: jest.fn(),
+  accountsGet: jest.fn(),
+  accountsBalanceGet: jest.fn(),
+  authGet: jest.fn(),
+  institutionsSearch: jest.fn(),
+  institutionsGetById: jest.fn(),
+  itemGet: jest.fn(),
+  itemRemove: jest.fn(),
+  identityGet: jest.fn(),
 }; 

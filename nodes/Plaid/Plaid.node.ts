@@ -496,6 +496,7 @@ export class Plaid implements INodeType {
                   account_owner: transaction.account_owner,
                   original_description: transaction.original_description,
                   // Metadata
+                  sync_status: 'added',
                   sync_cursor: response.data.next_cursor,
                   has_more: response.data.has_more,
                   source: 'plaid_sync',
