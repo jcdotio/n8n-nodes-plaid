@@ -33,8 +33,9 @@
     "dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials package.json",
+    "lint:ci": "eslint nodes credentials package.json --max-warnings=20",
     "lintfix": "eslint nodes credentials package.json --fix",
-    "prepublishOnly": "npm run build && npm run lint && npm run test:ci",
+    "prepublishOnly": "npm run build && npm run lint:ci && npm run test:ci",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -65,8 +66,8 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "audit-ci": "^7.1.0",
     "eslint": "^8.50.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.1",
@@ -77,7 +78,7 @@
     "n8n-workflow": "^1.0.0",
     "prettier": "^3.0.3",
     "ts-jest": "^29.1.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.3.3"
   },
   "peerDependencies": {
     "n8n-workflow": "*"
