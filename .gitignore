@@ -92,3 +92,4 @@ build/
 ehthumbs.db
 Thumbs.db 
 .jest-cache/
+.secrets/plaid-recovery-code

@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-plaid",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "n8n community node for Plaid financial data integration - the definitive financial node for n8n",
   "keywords": [
     "n8n-community-node-package",
@@ -16,7 +16,7 @@
   "homepage": "https://github.com/jcdotio/n8n-nodes-plaid",
   "author": {
     "name": "jcdotio",
-    "email": "your.email@example.com"
+    "email": "jc@jc.io"
   },
   "repository": {
     "type": "git",
@@ -65,7 +65,6 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.50.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.1",
