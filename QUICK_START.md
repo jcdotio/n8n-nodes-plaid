@@ -24,7 +24,7 @@ N8N_COMMUNITY_PACKAGES="n8n-nodes-plaid" npx n8n start
    Environment: Sandbox
    Client ID: [your_client_id]
    Secret Key: [your_secret]  
-   Access Token: access-sandbox-82671b1e-6671-4320-9e96-3f13d2b85e0a
+   Access Token: access-sandbox-xxx-xxx-xxx-xxx-xxx
    ```
 
 ## 🧪 **5. Test**

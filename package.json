@@ -65,7 +65,9 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "audit-ci": "^7.1.0",
     "eslint": "^8.50.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.1",
     "gulp": "^4.0.2",
