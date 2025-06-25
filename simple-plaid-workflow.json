@@ -1,0 +1,100 @@
+{
+  "name": "Simple Plaid Bank & Transactions",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f6f4b080-7b6a-4c6b-8b1a-9f3c2d1e0a1b",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "account",
+        "operation": "getAll"
+      },
+      "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      "name": "Get All Bank Accounts",
+      "type": "n8n-nodes-plaid.plaid",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "plaidApi": {
+          "id": "plaid-credentials-id",
+          "name": "Plaid API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "transaction",
+        "operation": "sync",
+        "returnAll": false,
+        "limit": 50
+      },
+      "id": "b2c3d4e5-f6g7-8901-2345-678901bcdefg",
+      "name": "Get Recent Transactions",
+      "type": "n8n-nodes-plaid.plaid",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "plaidApi": {
+          "id": "plaid-credentials-id",
+          "name": "Plaid API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get All Bank Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Bank Accounts": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Transactions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "your-instance-id"
+  },
+  "id": "simple-plaid-workflow",
+  "tags": [
+    {
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "updatedAt": "2024-01-15T10:00:00.000Z",
+      "id": "banking",
+      "name": "banking"
+    }
+  ]
+} 
