@@ -89,13 +89,14 @@ describe('Plaid Node', () => {
         });
     });
 
-    it('should sync transactions successfully', async () => {
-      // Ensure the mock is set up for this specific test  
+        it('should sync transactions successfully', async () => {
+      // Ensure the mock is set up for this specific test
       (mockExecute.getNodeParameter as jest.Mock)
         .mockImplementation((paramName: string, _itemIndex?: number, fallback?: any) => {
           const params: Record<string, any> = {
             resource: 'transaction',
             operation: 'sync',
+            accessToken: mockCredentials.accessToken,
             cursor: '',
             returnAll: false,
             limit: 100,
@@ -143,6 +144,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'transaction',
             operation: 'sync',
+            accessToken: mockCredentials.accessToken,
             cursor: '',
             returnAll: false,
             limit: 100,
@@ -186,6 +188,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'transaction',
             operation: 'sync',
+            accessToken: mockCredentials.accessToken,
             cursor: '',
             returnAll: false,
             limit: 100,
@@ -223,6 +226,7 @@ describe('Plaid Node', () => {
            const params: Record<string, any> = {
              resource: 'transaction',
              operation: 'getRange',
+             accessToken: mockCredentials.accessToken,
              startDate: '2024-01-01',
              endDate: '2024-01-31',
              returnAll: false,
@@ -269,6 +273,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'transaction',
             operation: 'getRange',
+            accessToken: mockCredentials.accessToken,
             startDate: '2024-01-01',
             endDate: '2024-01-31',
             returnAll: false,
@@ -304,6 +309,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'transaction',
             operation: 'getRange',
+            accessToken: mockCredentials.accessToken,
             startDate: '2024-01-01',
             endDate: '2024-01-31',
             returnAll: false,
@@ -345,6 +351,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'account',
             operation: 'getAll',
+            accessToken: mockCredentials.accessToken,
           };
           return params[paramName];
         });
@@ -379,6 +386,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'account',
             operation: 'getBalances',
+            accessToken: mockCredentials.accessToken,
           };
           return params[paramName];
         });
@@ -415,6 +423,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'auth',
             operation: 'get',
+            accessToken: mockCredentials.accessToken,
           };
           return params[paramName];
         });
@@ -548,6 +557,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'item',
             operation: 'get',
+            accessToken: mockCredentials.accessToken,
           };
           return params[paramName];
         });
@@ -583,6 +593,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'item',
             operation: 'remove',
+            accessToken: mockCredentials.accessToken,
           };
           return params[paramName];
         });
@@ -609,6 +620,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'identity',
             operation: 'get',
+            accessToken: mockCredentials.accessToken,
           };
           return params[paramName];
         });
@@ -678,6 +690,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'transaction',
             operation: 'sync',
+            accessToken: mockCredentials.accessToken,
             cursor: '',
             returnAll: false,
             limit: 100,
@@ -704,7 +717,7 @@ describe('Plaid Node', () => {
       expect(result[0]).toHaveLength(1);
       expect(result[0][0].json.error).toBe(true);
       expect(result[0][0].json.error_code).toBe('INVALID_ACCESS_TOKEN');
-      expect(result[0][0].json.error_message).toBe('The provided access token is invalid.');
+      expect(result[0][0].json.error_message).toContain('The provided access token is invalid.');
     });
 
     it('should throw NodeOperationError when continueOnFail is false', async () => {
@@ -714,6 +727,7 @@ describe('Plaid Node', () => {
           const params: Record<string, any> = {
             resource: 'transaction',
             operation: 'sync',
+            accessToken: mockCredentials.accessToken,
             cursor: '',
             returnAll: false,
             limit: 100,

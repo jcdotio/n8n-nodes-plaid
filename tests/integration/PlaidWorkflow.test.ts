@@ -81,6 +81,7 @@ describe('Plaid Workflow Integration Tests', () => {
       const mockExecute = createMockExecuteFunctions({
         resource: 'transaction',
         operation: 'sync',
+        accessToken: mockCredentials.accessToken,
         cursor: '',
         returnAll: false,
         limit: 100,
@@ -138,6 +139,7 @@ describe('Plaid Workflow Integration Tests', () => {
       const mockExecute = createMockExecuteFunctions({
         resource: 'transaction',
         operation: 'sync',
+        accessToken: mockCredentials.accessToken,
         cursor: 'initial_cursor',
         returnAll: false,
         limit: 100,
@@ -182,6 +184,7 @@ describe('Plaid Workflow Integration Tests', () => {
       const accountsExecute = createMockExecuteFunctions({
         resource: 'account',
         operation: 'getAll',
+        accessToken: mockCredentials.accessToken,
       });
 
       const accountsResult = await plaidNode.execute.call(accountsExecute);
@@ -196,6 +199,7 @@ describe('Plaid Workflow Integration Tests', () => {
       const transactionsExecute = createMockExecuteFunctions({
         resource: 'transaction',
         operation: 'sync',
+        accessToken: mockCredentials.accessToken,
         cursor: '',
         returnAll: false,
         limit: 100,
