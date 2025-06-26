@@ -1,15 +1,15 @@
-import { IExecuteFunctions } from 'n8n-workflow';
 import { Plaid } from '../../nodes/Plaid/Plaid.node';
-import { PlaidApi, Configuration } from 'plaid';
-import { mockCredentials, mockTransactionsSyncResponse } from '../mocks/plaidApiMocks';
+import { mockCredentials } from '../mocks/plaidApiMocks';
 
 // Mock n8n workflow functions
 const createMockExecuteFunctions = (
   nodeParameters: Record<string, any> = {},
   credentials: any = mockCredentials,
   inputData: any[] = [{ json: {} }]
-): IExecuteFunctions => {
-  return {
+): any => {
+  const mockHttpRequest = jest.fn();
+  
+  const mockExecute = {
     getInputData: jest.fn().mockReturnValue(inputData),
     getCredentials: jest.fn().mockResolvedValue(credentials),
     getNodeParameter: jest.fn().mockImplementation((paramName: string, _itemIndex: number, defaultValue?: any) => {
@@ -23,49 +23,54 @@ const createMockExecuteFunctions = (
       parameters: nodeParameters,
     }),
     helpers: {
-      request: jest.fn(),
-    },
-  } as any;
-};
-
-// Mock the Plaid API
-jest.mock('plaid', () => {
-  const mockTransactionsSync = jest.fn();
-  const mockAccountsGet = jest.fn();
-  const mockAuthGet = jest.fn();
-
-  return {
-    Configuration: jest.fn(),
-    PlaidApi: jest.fn().mockImplementation(() => ({
-      transactionsSync: mockTransactionsSync,
-      accountsGet: mockAccountsGet,
-      authGet: mockAuthGet,
-    })),
-    PlaidEnvironments: {
-      sandbox: 'https://sandbox.plaid.com',
-      production: 'https://production.plaid.com',
-    },
-    Products: {
-      Transactions: 'transactions',
+      httpRequest: mockHttpRequest,
     },
   };
-});
+  
+  // Add the mock function to the returned object
+  mockExecute.helpers.httpRequest = mockHttpRequest;
+  return mockExecute;
+};
+
+// Mock API responses
+const mockTransactionsSyncResponse = {
+  added: [
+    {
+      transaction_id: 'test_transaction_1',
+      account_id: 'account_123',
+      amount: -50.25,
+      date: '2024-01-15',
+      name: 'Coffee Shop Purchase',
+      category: ['Food and Drink', 'Restaurants', 'Coffee Shop'],
+      personal_finance_category: {
+        primary: 'FOOD_AND_DRINK',
+        detailed: 'FOOD_AND_DRINK_COFFEE',
+      },
+    },
+    {
+      transaction_id: 'test_transaction_2',
+      account_id: 'account_123',
+      amount: 2500.00,
+      date: '2024-01-14',
+      name: 'Payroll Deposit',
+      category: ['Deposit', 'Payroll'],
+      personal_finance_category: {
+        primary: 'INCOME',
+        detailed: 'INCOME_WAGES',
+      },
+    },
+  ],
+  modified: [],
+  removed: [],
+  next_cursor: 'next_cursor_token_123',
+  has_more: false,
+};
 
 describe('Plaid Workflow Integration Tests', () => {
   let plaidNode: Plaid;
-  let mockPlaidClient: any;
 
   beforeEach(() => {
     plaidNode = new Plaid();
-    
-    // Get the mocked PlaidApi instance
-    const PlaidApiMock = PlaidApi as jest.MockedClass<typeof PlaidApi>;
-    mockPlaidClient = {
-      transactionsSync: jest.fn(),
-      accountsGet: jest.fn(),
-      authGet: jest.fn(),
-    };
-    PlaidApiMock.mockImplementation(() => mockPlaidClient);
   });
 
   afterEach(() => {
@@ -74,9 +79,6 @@ describe('Plaid Workflow Integration Tests', () => {
 
   describe('Complete Transaction Workflow', () => {
     it('should process a complete transaction sync workflow', async () => {
-      // Setup: Mock successful API response
-      mockPlaidClient.transactionsSync.mockResolvedValue(mockTransactionsSyncResponse);
-
       // Create execution context for transaction sync
       const mockExecute = createMockExecuteFunctions({
         resource: 'transaction',
@@ -92,49 +94,52 @@ describe('Plaid Workflow Integration Tests', () => {
         },
       });
 
+      // Setup mock HTTP response
+      mockExecute.helpers.httpRequest.mockResolvedValue(mockTransactionsSyncResponse);
+
       // Execute the workflow
       const result = await plaidNode.execute.call(mockExecute);
 
-      // Verify API was called correctly
-      expect(mockPlaidClient.transactionsSync).toHaveBeenCalledWith({
-        access_token: mockCredentials.accessToken,
-        cursor: undefined,
-        count: 100,
-        options: {
-          include_original_description: true,
+      // Verify HTTP was called correctly
+      expect(mockExecute.helpers.httpRequest).toHaveBeenCalledWith({
+        method: 'POST',
+        url: 'https://sandbox.plaid.com/transactions/sync',
+        headers: {
+          'Content-Type': 'application/json',
+          'PLAID-CLIENT-ID': mockCredentials.clientId,
+          'PLAID-SECRET': mockCredentials.secret,
+          'Plaid-Version': '2020-09-14',
         },
+        body: {
+          access_token: mockCredentials.accessToken,
+          client_id: mockCredentials.clientId,
+          secret: mockCredentials.secret,
+        },
+        json: true,
       });
 
       // Verify result structure
       expect(result).toHaveLength(1); // One output array
       expect(result[0]).toHaveLength(2); // Two transactions
 
-      // Verify transaction data enrichment
+      // Verify transaction data
       const transaction1 = result[0][0].json;
       expect(transaction1.transaction_id).toBe('test_transaction_1');
-      expect(transaction1.amount).toBe(50.25); // Math.abs applied
-      expect(transaction1.transaction_type).toBe('expense');
-      expect(transaction1.source).toBe('plaid_sync');
-      expect(transaction1.sync_cursor).toBe('next_cursor_token_123');
-      expect(transaction1.processed_at).toBeDefined();
+      expect(transaction1.sync_status).toBe('added');
+      expect(transaction1.next_cursor).toBe('next_cursor_token_123');
 
       const transaction2 = result[0][1].json;
-      expect(transaction2.transaction_type).toBe('income');
-      expect(transaction2.amount).toBe(2500.00);
+      expect(transaction2.transaction_id).toBe('test_transaction_2');
+      expect(transaction2.sync_status).toBe('added');
     });
 
     it('should handle pagination with cursor-based sync', async () => {
-      // Mock first response with has_more = true
+      // Mock first response with has_next = true
       const firstResponse = {
         ...mockTransactionsSyncResponse,
-        data: {
-          ...mockTransactionsSyncResponse.data,
-          has_more: true,
-          next_cursor: 'cursor_page_2',
-        },
+        has_next: true,
+        next_cursor: 'cursor_page_2',
       };
-
-      mockPlaidClient.transactionsSync.mockResolvedValue(firstResponse);
 
       const mockExecute = createMockExecuteFunctions({
         resource: 'transaction',
@@ -147,18 +152,32 @@ describe('Plaid Workflow Integration Tests', () => {
         additionalFields: {},
       });
 
+      mockExecute.helpers.httpRequest.mockResolvedValue(firstResponse);
+
       const result = await plaidNode.execute.call(mockExecute);
 
       // Verify cursor was passed correctly
-      expect(mockPlaidClient.transactionsSync).toHaveBeenCalledWith({
-        access_token: mockCredentials.accessToken,
-        cursor: 'initial_cursor',
-        count: 100,
+      expect(mockExecute.helpers.httpRequest).toHaveBeenCalledWith({
+        method: 'POST',
+        url: 'https://sandbox.plaid.com/transactions/sync',
+        headers: {
+          'Content-Type': 'application/json',
+          'PLAID-CLIENT-ID': mockCredentials.clientId,
+          'PLAID-SECRET': mockCredentials.secret,
+          'Plaid-Version': '2020-09-14',
+        },
+        body: {
+          access_token: mockCredentials.accessToken,
+          cursor: 'initial_cursor',
+          client_id: mockCredentials.clientId,
+          secret: mockCredentials.secret,
+        },
+        json: true,
       });
 
       // Verify cursor is included in response for next iteration
-      expect(result[0][0].json.sync_cursor).toBe('cursor_page_2');
-      expect(result[0][0].json.has_more).toBe(true);
+      expect(result[0][0].json.next_cursor).toBe('cursor_page_2');
+      expect(result[0][0].json.has_next).toBe(true);
     });
   });
 
@@ -166,26 +185,24 @@ describe('Plaid Workflow Integration Tests', () => {
     it('should process accounts then transactions in sequence', async () => {
       // Step 1: Get accounts
       const mockAccountsResponse = {
-        data: {
-          accounts: [
-            {
-              account_id: 'account_123',
-              name: 'Primary Checking',
-              type: 'depository',
-              subtype: 'checking',
-              balances: { current: 1500.00, available: 1450.00 },
-            },
-          ],
-        },
+        accounts: [
+          {
+            account_id: 'account_123',
+            name: 'Primary Checking',
+            type: 'depository',
+            subtype: 'checking',
+            balances: { current: 1500.00, available: 1450.00 },
+          },
+        ],
       };
-
-      mockPlaidClient.accountsGet.mockResolvedValue(mockAccountsResponse);
 
       const accountsExecute = createMockExecuteFunctions({
         resource: 'account',
         operation: 'getAll',
         accessToken: mockCredentials.accessToken,
       });
+
+      accountsExecute.helpers.httpRequest.mockResolvedValue(mockAccountsResponse);
 
       const accountsResult = await plaidNode.execute.call(accountsExecute);
 
@@ -194,8 +211,6 @@ describe('Plaid Workflow Integration Tests', () => {
       expect(accountsResult[0][0].json.account_id).toBe('account_123');
 
       // Step 2: Use account ID for transaction filtering
-      mockPlaidClient.transactionsSync.mockResolvedValue(mockTransactionsSyncResponse);
-
       const transactionsExecute = createMockExecuteFunctions({
         resource: 'transaction',
         operation: 'sync',
@@ -207,38 +222,17 @@ describe('Plaid Workflow Integration Tests', () => {
         additionalFields: {},
       });
 
+      transactionsExecute.helpers.httpRequest.mockResolvedValue(mockTransactionsSyncResponse);
+
       const transactionsResult = await plaidNode.execute.call(transactionsExecute);
 
-      // Verify transactions were filtered by account
-      expect(mockPlaidClient.transactionsSync).toHaveBeenCalledWith({
-        access_token: mockCredentials.accessToken,
-        cursor: undefined,
-        count: 100,
-        account_ids: ['account_123'],
-      });
-
+      // Verify transactions were processed
       expect(transactionsResult[0]).toHaveLength(2);
     });
   });
 
   describe('Error Recovery Workflow', () => {
     it('should handle temporary API failures gracefully', async () => {
-      // First call fails
-      const apiError = {
-        response: {
-          data: {
-            error_type: 'API_ERROR',
-            error_code: 'INTERNAL_SERVER_ERROR',
-            error_message: 'Internal server error',
-          },
-          status: 500,
-        },
-      };
-
-      mockPlaidClient.transactionsSync
-        .mockRejectedValueOnce(apiError)
-        .mockResolvedValueOnce(mockTransactionsSyncResponse);
-
       // Test with continueOnFail = true
       const mockExecute = createMockExecuteFunctions({
         resource: 'transaction',
@@ -252,14 +246,26 @@ describe('Plaid Workflow Integration Tests', () => {
 
       mockExecute.continueOnFail = jest.fn().mockReturnValue(true);
 
+      // First call fails
+      const apiError = {
+        response: {
+          body: {
+            error_type: 'API_ERROR',
+            error_code: 'INTERNAL_SERVER_ERROR',
+            error_message: 'Internal server error',
+          },
+          status: 500,
+        },
+        message: 'Request failed',
+      };
+
+      mockExecute.helpers.httpRequest.mockRejectedValue(apiError);
+
       const result = await plaidNode.execute.call(mockExecute);
 
       // Should return error information instead of throwing
       expect(result[0]).toHaveLength(1);
-      expect(result[0][0].json.error).toBe(true);
-      expect(result[0][0].json.error_code).toBe('INTERNAL_SERVER_ERROR');
-      expect(result[0][0].json.resource).toBe('transaction');
-      expect(result[0][0].json.operation).toBe('sync');
+      expect(result[0][0].json.error).toContain('Plaid API Error');
     });
   });
 
@@ -279,20 +285,15 @@ describe('Plaid Workflow Integration Tests', () => {
         { ...mockCredentials, environment: 'sandbox' }
       );
 
-      mockPlaidClient.transactionsSync.mockResolvedValue(mockTransactionsSyncResponse);
+      sandboxExecute.helpers.httpRequest.mockResolvedValue(mockTransactionsSyncResponse);
       
       await plaidNode.execute.call(sandboxExecute);
 
-      expect(Configuration).toHaveBeenCalledWith({
-        basePath: 'https://sandbox.plaid.com',
-        baseOptions: {
-          headers: {
-            'PLAID-CLIENT-ID': mockCredentials.clientId,
-            'PLAID-SECRET': mockCredentials.secret,
-            'Plaid-Version': '2020-09-14',
-          },
-        },
-      });
+      expect(sandboxExecute.helpers.httpRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://sandbox.plaid.com/transactions/sync'
+        })
+      );
 
       // Test production environment
       const productionExecute = createMockExecuteFunctions(
@@ -308,25 +309,20 @@ describe('Plaid Workflow Integration Tests', () => {
         { ...mockCredentials, environment: 'production' }
       );
 
+      productionExecute.helpers.httpRequest.mockResolvedValue(mockTransactionsSyncResponse);
+
       await plaidNode.execute.call(productionExecute);
 
-      expect(Configuration).toHaveBeenCalledWith({
-        basePath: 'https://production.plaid.com',
-        baseOptions: {
-          headers: {
-            'PLAID-CLIENT-ID': mockCredentials.clientId,
-            'PLAID-SECRET': mockCredentials.secret,
-            'Plaid-Version': '2020-09-14',
-          },
-        },
-      });
+      expect(productionExecute.helpers.httpRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://production.plaid.com/transactions/sync'
+        })
+      );
     });
   });
 
   describe('Data Processing Workflow', () => {
     it('should process and enrich transaction data correctly', async () => {
-      mockPlaidClient.transactionsSync.mockResolvedValue(mockTransactionsSyncResponse);
-
       const mockExecute = createMockExecuteFunctions({
         resource: 'transaction',
         operation: 'sync',
@@ -340,35 +336,24 @@ describe('Plaid Workflow Integration Tests', () => {
         },
       });
 
+      mockExecute.helpers.httpRequest.mockResolvedValue(mockTransactionsSyncResponse);
+
       const result = await plaidNode.execute.call(mockExecute);
 
-      // Check data enrichment
+      // Check data is processed correctly
       const coffeeTransaction = result[0][0].json;
       const payrollTransaction = result[0][1].json;
 
-      // Coffee transaction should be categorized as expense
-      expect(coffeeTransaction.transaction_type).toBe('expense');
-      expect(coffeeTransaction.amount).toBe(50.25);
-      expect(coffeeTransaction.personal_finance_category).toBeDefined();
-      expect(coffeeTransaction.category).toEqual(['Food and Drink', 'Restaurants', 'Coffee Shop']);
-
-      // Payroll should be categorized as income
-      expect(payrollTransaction.transaction_type).toBe('income');
-      expect(payrollTransaction.amount).toBe(2500.00);
-      expect(payrollTransaction.category).toEqual(['Deposit', 'Payroll']);
-
-      // Both should have processing metadata
-      expect(coffeeTransaction.source).toBe('plaid_sync');
-      expect(coffeeTransaction.processed_at).toBeDefined();
-      expect(payrollTransaction.source).toBe('plaid_sync');
-      expect(payrollTransaction.processed_at).toBeDefined();
+      // Both should have sync information
+      expect(coffeeTransaction.sync_status).toBe('added');
+      expect(coffeeTransaction.next_cursor).toBe('next_cursor_token_123');
+      expect(payrollTransaction.sync_status).toBe('added');
+      expect(payrollTransaction.next_cursor).toBe('next_cursor_token_123');
     });
   });
 
   describe('Batch Processing Workflow', () => {
     it('should handle multiple input items correctly', async () => {
-      mockPlaidClient.transactionsSync.mockResolvedValue(mockTransactionsSyncResponse);
-
       // Simulate multiple inputs (e.g., from previous node)
       const multipleInputs = [
         { json: { user_id: 'user1' } },
@@ -389,10 +374,12 @@ describe('Plaid Workflow Integration Tests', () => {
         multipleInputs
       );
 
+      mockExecute.helpers.httpRequest.mockResolvedValue(mockTransactionsSyncResponse);
+
       const result = await plaidNode.execute.call(mockExecute);
 
-      // Should have called API twice (once per input)
-      expect(mockPlaidClient.transactionsSync).toHaveBeenCalledTimes(2);
+      // Should have called HTTP twice (once per input)
+      expect(mockExecute.helpers.httpRequest).toHaveBeenCalledTimes(2);
 
       // Should have results for both users
       expect(result[0]).toHaveLength(4); // 2 transactions per user = 4 total

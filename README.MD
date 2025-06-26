@@ -1,6 +1,6 @@
 # n8n-nodes-plaid
-[![Tests](https://img.shields.io/badge/tests-59%2F59%20passing-brightgreen)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/tests-55%2F55%20passing-brightgreen)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](https://github.com/jcdotio/n8n-nodes-plaid/actions/workflows/test.yml)
 The definitive Plaid financial integration node for n8n
 
 ## 🚨 **Important Update: Modern Authentication Flow**

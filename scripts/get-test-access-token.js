@@ -1,212 +1,286 @@
 #!/usr/bin/env node
 
 /**
- * Plaid Test Access Token Generator
+ * Get Test Access Token for Plaid Sandbox
  * 
- * This script helps developers get sandbox access tokens for testing
- * their n8n-nodes-plaid integration without going through the full
- * Plaid Link flow.
+ * This script helps you get test access tokens for development and testing
+ * without needing the full Plaid Link flow.
  * 
  * Usage:
- * 1. Get your sandbox credentials from https://dashboard.plaid.com
- * 2. Set environment variables or edit the config below
- * 3. Run: node scripts/get-test-access-token.js
+ *   node scripts/get-test-access-token.js
+ *   node scripts/get-test-access-token.js ins_3  # Specific institution
+ * 
+ * Environment Variables:
+ *   PLAID_CLIENT_ID - Your Plaid client ID
+ *   PLAID_SECRET - Your Plaid secret key
  */
 
-require('dotenv').config();
+const https = require('https');
 
-const { Configuration, PlaidApi, PlaidEnvironments, Products, CountryCode } = require('plaid');
-
-// Configuration - you can set these via environment variables or edit directly
-const config = {
-  clientId: process.env.PLAID_CLIENT_ID || 'YOUR_SANDBOX_CLIENT_ID',
-  secret: process.env.PLAID_SECRET || 'YOUR_SANDBOX_SECRET',
-  environment: 'sandbox', // Always use sandbox for testing
+// Default test institution IDs for different banks
+const TEST_INSTITUTIONS = {
+  'ins_3': 'Chase',
+  'ins_4': 'Bank of America', 
+  'ins_5': 'Wells Fargo',
+  'ins_6': 'Citibank',
+  'ins_7': 'Capital One',
+  'ins_109508': 'First Republic Bank',
+  'ins_109509': 'Tartan Bank'
 };
 
-const INSTITUTIONS = {
-  chase: 'ins_3',
-  bofa: 'ins_4', 
-  wells_fargo: 'ins_5',
-  citi: 'ins_6',
-  capital_one: 'ins_7',
-  pnc: 'ins_8',
-};
+// Get credentials from environment or prompt
+const CLIENT_ID = process.env.PLAID_CLIENT_ID;
+const SECRET = process.env.PLAID_SECRET;
+const INSTITUTION_ID = process.argv[2] || 'ins_109509'; // Default to Tartan Bank
 
-async function generateTestAccessToken(institutionId = 'ins_3') {
-  console.log('🚀 Plaid Test Access Token Generator');
-  console.log('═'.repeat(50));
-  
-  if (config.clientId === 'YOUR_SANDBOX_CLIENT_ID') {
-    console.log('❌ Please set your Plaid credentials first!');
-    console.log('');
-    console.log('Option 1: Set environment variables:');
-    console.log('  export PLAID_CLIENT_ID=your_sandbox_client_id');
-    console.log('  export PLAID_SECRET=your_sandbox_secret');
-    console.log('');
-    console.log('Option 2: Edit this script and replace the config values');
-    console.log('');
-    console.log('Get your credentials at: https://dashboard.plaid.com');
-    process.exit(1);
-  }
+if (!CLIENT_ID || !SECRET) {
+  console.error('❌ Missing credentials!');
+  console.error('');
+  console.error('Please set environment variables:');
+  console.error('  export PLAID_CLIENT_ID=your_sandbox_client_id');
+  console.error('  export PLAID_SECRET=your_sandbox_secret');
+  console.error('');
+  console.error('Get these from: https://dashboard.plaid.com/team/keys');
+  process.exit(1);
+}
 
-  const configuration = new Configuration({
-    basePath: PlaidEnvironments.sandbox,
-    baseOptions: {
+console.log('🏦 Plaid Test Access Token Generator');
+console.log('=====================================');
+console.log('');
+console.log(`Using institution: ${TEST_INSTITUTIONS[INSTITUTION_ID] || INSTITUTION_ID}`);
+console.log('Environment: Sandbox');
+console.log('');
+
+/**
+ * Make HTTPS request to Plaid API
+ */
+function makeRequest(endpoint, data) {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify({
+      ...data,
+      client_id: CLIENT_ID,
+      secret: SECRET
+    });
+
+    const options = {
+      hostname: 'sandbox.plaid.com',
+      path: endpoint,
+      method: 'POST',
       headers: {
-        'PLAID-CLIENT-ID': config.clientId,
-        'PLAID-SECRET': config.secret,
-      },
-    },
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+        'Plaid-Version': '2020-09-14'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const response = JSON.parse(data);
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(response);
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}: ${response.error_message || data}`));
+          }
+        } catch (error) {
+          reject(new Error(`Failed to parse response: ${error.message}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(new Error(`Request failed: ${error.message}`));
+    });
+
+    req.write(postData);
+    req.end();
   });
+}
 
-  const client = new PlaidApi(configuration);
-
+/**
+ * Create a Link Token
+ */
+async function createLinkToken() {
+  console.log('📝 Step 1: Creating Link Token...');
+  
   try {
-    console.log('🔗 Step 1: Creating link token...');
-    
-    // Step 1: Create a link token
-    const linkTokenResponse = await client.linkTokenCreate({
+    const response = await makeRequest('/link/token/create', {
       user: {
-        client_user_id: `test-user-${Date.now()}`
+        client_user_id: 'test_user_' + Date.now()
       },
       client_name: 'n8n Plaid Test',
-      products: [Products.Transactions, Products.Auth],
-      country_codes: [CountryCode.Us],
+      products: ['transactions', 'auth'],
+      country_codes: ['US'],
       language: 'en'
     });
-    
-    console.log('✅ Link token created:', linkTokenResponse.data.link_token);
-    console.log('⏰ Expires at:', linkTokenResponse.data.expiration);
-    
-    console.log('');
-    console.log('🏦 Step 2: Creating test public token...');
-    console.log(`   Using institution: ${institutionId} (${getInstitutionName(institutionId)})`);
-    
-    // Step 2: Create test public token (bypasses Plaid Link UI - sandbox only)
-    const publicTokenResponse = await client.sandboxPublicTokenCreate({
-      institution_id: institutionId,
-      initial_products: [Products.Transactions, Products.Auth]
-    });
-    
-    console.log('✅ Public token created:', publicTokenResponse.data.public_token);
-    
-    console.log('');
-    console.log('🔑 Step 3: Exchanging for access token...');
-    
-    // Step 3: Exchange public token for access token
-    const exchangeResponse = await client.itemPublicTokenExchange({
-      public_token: publicTokenResponse.data.public_token
-    });
-    
-    const accessToken = exchangeResponse.data.access_token;
-    const itemId = exchangeResponse.data.item_id;
-    
-    console.log('✅ Access token created!');
-    console.log('📋 Item ID:', itemId);
-    
-    console.log('');
-    console.log('🎯 SUCCESS! Here\'s your test access token:');
-    console.log('═'.repeat(60));
-    console.log('ACCESS TOKEN:', accessToken);
-    console.log('═'.repeat(60));
-    
-    console.log('');
-    console.log('🧪 Testing the access token...');
-    
-    // Test the access token
-    const accountsResponse = await client.accountsGet({
-      access_token: accessToken
-    });
-    
-    console.log('✅ Test successful! Found', accountsResponse.data.accounts.length, 'test accounts:');
-    
-    accountsResponse.data.accounts.forEach((account, index) => {
-      console.log(`  ${index + 1}. ${account.name} (${account.subtype})`);
-      console.log(`     Balance: $${account.balances.current || 'N/A'}`);
-      console.log(`     Account ID: ${account.account_id}`);
-    });
-    
-    console.log('');
-    console.log('📝 How to use this in n8n:');
-    console.log('1. Go to n8n Settings → Credentials');
-    console.log('2. Create new Plaid API credential');
-    console.log('3. Set Environment: Sandbox');
-    console.log('4. Enter your Client ID and Secret');
-    console.log('5. In your Plaid node, paste the access token above');
-    
-    console.log('');
-    console.log('🔄 Want a different bank? Run with:');
-    Object.entries(INSTITUTIONS).forEach(([name, id]) => {
-      console.log(`   node scripts/get-test-access-token.js ${id}  # ${name}`);
-    });
-    
-    return {
-      accessToken,
-      itemId,
-      linkToken: linkTokenResponse.data.link_token,
-      publicToken: publicTokenResponse.data.public_token,
-      accounts: accountsResponse.data.accounts.length
-    };
-    
+
+    console.log('✅ Link token created successfully');
+    return response.link_token;
   } catch (error) {
-    console.error('');
-    console.error('❌ Error generating access token:');
-    console.error('Message:', error.message);
-    
-    if (error.response && error.response.data) {
-      console.error('Plaid Error Details:', JSON.stringify(error.response.data, null, 2));
-      
-      if (error.response.data.error_code === 'INVALID_CREDENTIALS') {
-        console.error('');
-        console.error('💡 This usually means:');
-        console.error('   - Your Client ID or Secret is incorrect');
-        console.error('   - You\'re using production credentials in sandbox');
-        console.error('   - Check your credentials at https://dashboard.plaid.com');
-      }
-    }
-    
+    console.error('❌ Failed to create link token:', error.message);
     throw error;
   }
 }
 
-function getInstitutionName(institutionId) {
-  const institutionNames = {
-    'ins_3': 'Chase',
-    'ins_4': 'Bank of America', 
-    'ins_5': 'Wells Fargo',
-    'ins_6': 'Citibank',
-    'ins_7': 'Capital One',
-    'ins_8': 'PNC Bank',
-  };
-  return institutionNames[institutionId] || 'Unknown Institution';
-}
-
-// CLI usage
-if (require.main === module) {
-  const institutionId = process.argv[2] || 'ins_3';
+/**
+ * Create a test public token (sandbox only)
+ */
+async function createPublicToken(linkToken) {
+  console.log('🔗 Step 2: Creating Public Token...');
   
-  if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    console.log('Usage: node get-test-access-token.js [institution_id]');
-    console.log('');
-    console.log('Available institutions:');
-    Object.entries(INSTITUTIONS).forEach(([name, id]) => {
-      console.log(`  ${id} - ${name}`);
+  try {
+    const response = await makeRequest('/sandbox/public_token/create', {
+      institution_id: INSTITUTION_ID,
+      initial_products: ['transactions', 'auth'],
+      options: {
+        webhook: null
+      }
     });
-    process.exit(0);
+
+    console.log('✅ Public token created successfully');
+    return response.public_token;
+  } catch (error) {
+    console.error('❌ Failed to create public token:', error.message);
+    throw error;
   }
-  
-  generateTestAccessToken(institutionId)
-    .then(() => {
-      console.log('');
-      console.log('🎉 Done! Your access token is ready for n8n testing.');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('');
-      console.error('💥 Failed to generate access token');
-      process.exit(1);
-    });
 }
 
-module.exports = { generateTestAccessToken };
+/**
+ * Exchange public token for access token
+ */
+async function exchangeToken(publicToken) {
+  console.log('🔄 Step 3: Exchanging for Access Token...');
+  
+  try {
+    const response = await makeRequest('/item/public_token/exchange', {
+      public_token: publicToken
+    });
+
+    console.log('✅ Access token created successfully');
+    return {
+      access_token: response.access_token,
+      item_id: response.item_id
+    };
+  } catch (error) {
+    console.error('❌ Failed to exchange token:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Test the access token by getting accounts
+ */
+async function testAccessToken(accessToken) {
+  console.log('🧪 Step 4: Testing Access Token...');
+  
+  try {
+    const response = await makeRequest('/accounts/get', {
+      access_token: accessToken
+    });
+
+    console.log('✅ Access token works! Found', response.accounts.length, 'accounts');
+    return response.accounts;
+  } catch (error) {
+    console.error('❌ Failed to test access token:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Main execution
+ */
+async function main() {
+  try {
+    // Step 1: Create link token
+    const linkToken = await createLinkToken();
+    
+    // Step 2: Create public token (sandbox shortcut)
+    const publicToken = await createPublicToken(linkToken);
+    
+    // Step 3: Exchange for access token
+    const { access_token, item_id } = await exchangeToken(publicToken);
+    
+    // Step 4: Test the access token
+    const accounts = await testAccessToken(access_token);
+    
+    // Success! Show results
+    console.log('');
+    console.log('🎉 SUCCESS! Your test tokens are ready:');
+    console.log('==========================================');
+    console.log('');
+    console.log('🔗 LINK TOKEN:');
+    console.log(`   ${linkToken}`);
+    console.log('   ⏱️  Expires in: 4 hours');
+    console.log('   📝 Use this to initialize Plaid Link in your frontend');
+    console.log('');
+    console.log('🔑 PUBLIC TOKEN:');
+    console.log(`   ${publicToken}`);
+    console.log('   ⏱️  Expires in: 30 minutes');
+    console.log('   📝 This is what Plaid Link returns after user authentication');
+    console.log('');
+    console.log('🎯 ACCESS TOKEN:');
+    console.log(`   ${access_token}`);
+    console.log('   ⏱️  Permanent (until revoked)');
+    console.log('   📝 Use this for all Plaid API operations in n8n');
+    console.log('');
+    console.log('📋 ITEM ID:');
+    console.log(`   ${item_id}`);
+    console.log('   📝 Unique identifier for this connected account');
+    console.log('');
+    console.log('📊 TEST ACCOUNTS:');
+    accounts.forEach((account, index) => {
+      console.log(`   ${index + 1}. ${account.name} (${account.subtype})`);
+      console.log(`      Account ID: ${account.account_id}`);
+      console.log(`      Balance: $${account.balances.current || 0}`);
+    });
+    console.log('');
+    console.log('🔄 TOKEN FLOW EXPLANATION:');
+    console.log('   Link Token   → Initialize Plaid Link UI');
+    console.log('   Public Token → Temporary token from successful auth');
+    console.log('   Access Token → Permanent token for API operations');
+    console.log('');
+    console.log('🔧 NEXT STEPS:');
+    console.log('   1. For n8n: Copy the ACCESS TOKEN above');
+    console.log('   2. For frontend: Use the LINK TOKEN to initialize Plaid Link');
+    console.log('   3. For backend: Exchange PUBLIC TOKEN for ACCESS TOKEN');
+    console.log('   4. Test with transaction sync or account operations');
+    console.log('');
+    console.log('💡 QUICK n8n TEST:');
+    console.log('   • Add Plaid node to workflow');
+    console.log('   • Set operation: Transaction → Sync');
+    console.log(`   • Access Token: ${access_token}`);
+    console.log('   • Click "Execute Node" ✨');
+    
+  } catch (error) {
+    console.error('');
+    console.error('💥 FAILED:', error.message);
+    console.error('');
+    console.error('🔧 TROUBLESHOOTING:');
+    console.error('   1. Check your PLAID_CLIENT_ID and PLAID_SECRET');
+    console.error('   2. Make sure you\'re using sandbox credentials');
+    console.error('   3. Verify your Plaid dashboard access');
+    console.error('');
+    process.exit(1);
+  }
+}
+
+// Show available institutions if requested
+if (process.argv[2] === '--list' || process.argv[2] === '-l') {
+  console.log('Available test institutions:');
+  console.log('============================');
+  Object.entries(TEST_INSTITUTIONS).forEach(([id, name]) => {
+    console.log(`  ${id}: ${name}`);
+  });
+  console.log('');
+  console.log('Usage: node scripts/get-test-access-token.js [institution_id]');
+  process.exit(0);
+}
+
+// Run the script
+main(); 

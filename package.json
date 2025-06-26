@@ -1,89 +1,71 @@
 {
-  "name": "n8n-nodes-plaid",
-  "version": "1.0.6",
-  "description": "n8n community node for Plaid financial data integration - the definitive financial node for n8n",
-  "keywords": [
-    "n8n-community-node-package",
-    "n8n",
-    "plaid",
-    "financial",
-    "banking",
-    "transactions",
-    "accounts",
-    "fintech"
-  ],
-  "license": "MIT",
-  "homepage": "https://github.com/jcdotio/n8n-nodes-plaid",
-  "author": {
-    "name": "jcdotio",
-    "email": "jc@jc.io"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jcdotio/n8n-nodes-plaid.git"
-  },
-  "engines": {
-    "node": ">=18.10",
-    "pnpm": ">=8.9"
-  },
-  "packageManager": "pnpm@8.9.0",
-  "main": "index.js",
-  "scripts": {
-    "build": "tsc && gulp build:icons",
-    "dev": "tsc --watch",
-    "format": "prettier nodes credentials --write",
-    "lint": "eslint nodes credentials package.json",
-    "lint:ci": "eslint nodes credentials package.json --max-warnings=20",
-    "lintfix": "eslint nodes credentials package.json --fix",
-    "prepublishOnly": "npm run build && npm run lint:ci && npm run test:ci",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:unit": "jest tests/unit/",
-    "test:integration": "jest tests/integration/",
-    "test:verbose": "jest --verbose",
-    "test:debug": "jest --inspect-brk --runInBand",
-    "test:ci": "jest --coverage --watchAll=false --passWithNoTests",
-    "test:performance": "jest --detectOpenHandles --logHeapUsage",
-    "test:changed": "jest --onlyChanged",
-    "test:related": "jest --findRelatedTests",
-    "test:updateSnapshot": "jest --updateSnapshot",
-    "coverage:open": "open coverage/lcov-report/index.html || start coverage/lcov-report/index.html",
-    "coverage:text": "jest --coverage --coverageReporters=text",
-    "coverage:json": "jest --coverage --coverageReporters=json"
-  },
-  "files": [
-    "dist"
-  ],
-  "n8n": {
-    "n8nNodesApiVersion": 1,
-    "credentials": [
-      "dist/credentials/PlaidApi.credentials.js"
-    ],
-    "nodes": [
-      "dist/nodes/Plaid/Plaid.node.js"
-    ]
-  },
-  "devDependencies": {
-    "@types/jest": "^29.5.0",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "audit-ci": "^7.1.0",
-    "eslint": "^8.50.0",
-    "eslint-plugin-n8n-nodes-base": "^1.16.1",
-    "gulp": "^4.0.2",
-    "jest": "^29.5.0",
-    "jest-junit": "^16.0.0",
-    "jest-watch-typeahead": "^2.2.2",
-    "n8n-workflow": "^1.0.0",
-    "prettier": "^3.0.3",
-    "ts-jest": "^29.1.0",
-    "typescript": "^5.3.3"
-  },
-  "peerDependencies": {
-    "n8n-workflow": "*"
-  },
-  "dependencies": {
-    "plaid": "^34.0.0"
-  }
+	"name": "n8n-nodes-plaid",
+	"version": "2.0.0",
+	"description": "The definitive Plaid financial integration node for n8n - Zero Dependencies for Cloud Verification",
+	"keywords": [
+		"n8n-community-node-package",
+		"plaid",
+		"banking",
+		"financial",
+		"transactions",
+		"fintech",
+		"api",
+		"n8n",
+		"workflow",
+		"automation"
+	],
+	"license": "MIT",
+	"homepage": "https://github.com/jcdotio/n8n-nodes-plaid#readme",
+	"author": {
+		"name": "jcdotio",
+		"email": "jcdotio@users.noreply.github.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/jcdotio/n8n-nodes-plaid.git"
+	},
+	"bugs": {
+		"url": "https://github.com/jcdotio/n8n-nodes-plaid/issues"
+	},
+	"engines": {
+		"node": ">=20.15"
+	},
+	"main": "index.js",
+	"scripts": {
+		"build": "tsc && gulp build:icons",
+		"dev": "tsc --watch",
+		"format": "prettier nodes credentials --write",
+		"lint": "eslint nodes credentials package.json",
+		"lintfix": "eslint nodes credentials package.json --fix",
+		"prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json",
+		"test": "jest",
+		"test:coverage": "jest --coverage",
+		"test:watch": "jest --watch"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/PlaidApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Plaid/Plaid.node.js"
+		]
+	},
+	"devDependencies": {
+		"@types/jest": "^29.5.5",
+		"@types/node": "^20.8.0",
+		"@typescript-eslint/eslint-plugin": "^6.7.0",
+		"@typescript-eslint/parser": "^6.7.0",
+		"eslint": "^8.49.0",
+		"eslint-plugin-n8n-nodes-base": "^1.12.0",
+		"gulp": "^4.0.2",
+		"jest": "^29.7.0",
+		"n8n-workflow": "^1.0.0",
+		"prettier": "^3.0.3",
+		"ts-jest": "^29.1.1",
+		"typescript": "^5.2.2"
+	}
 }

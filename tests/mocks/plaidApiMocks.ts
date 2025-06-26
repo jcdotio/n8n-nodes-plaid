@@ -1,8 +1,169 @@
+// Mock credentials for testing
 export const mockCredentials = {
-  environment: 'sandbox',
   clientId: 'test_client_id',
-  secret: 'test_secret_key',
+  secret: 'test_secret',
   accessToken: 'access-sandbox-test-token',
+  environment: 'sandbox',
+};
+
+// Mock API responses that match what the new no-dependencies implementation expects
+export const mockApiResponses = {
+  transactionsSync: {
+    added: [
+      {
+        transaction_id: 'test_transaction_1',
+        account_id: 'account_123',
+        amount: -50.25,
+        date: '2024-01-15',
+        name: 'Coffee Shop Purchase',
+        category: ['Food and Drink', 'Restaurants', 'Coffee Shop'],
+      },
+    ],
+    modified: [],
+    removed: [],
+    next_cursor: 'next_cursor_token_123',
+    has_next: false,
+  },
+  
+  accountsGet: {
+    accounts: [
+      {
+        account_id: 'account_123',
+        name: 'Primary Checking',
+        type: 'depository',
+        subtype: 'checking',
+        balances: { current: 1500.00, available: 1450.00 },
+      },
+    ],
+  },
+  
+  authGet: {
+    accounts: [
+      {
+        account_id: 'account_123',
+        name: 'Primary Checking',
+        type: 'depository',
+        subtype: 'checking',
+        balances: { current: 1500.00, available: 1450.00 },
+      },
+    ],
+    numbers: {
+      ach: [
+        {
+          account_id: 'account_123',
+          account: '1234567890',
+          routing: '011401533',
+          wire_routing: '021000021',
+        },
+      ],
+    },
+  },
+  
+  institutionsSearch: {
+    institutions: [
+      {
+        institution_id: 'ins_109508',
+        name: 'Chase',
+        products: ['transactions', 'auth'],
+        country_codes: ['US'],
+        url: 'https://chase.com',
+        primary_color: '#005a2d',
+        logo: 'logo_url',
+        routing_numbers: ['021000021'],
+      },
+    ],
+  },
+  
+  institutionsGetById: {
+    institution: {
+      institution_id: 'ins_109508',
+      name: 'Chase',
+      products: ['transactions', 'auth'],
+      country_codes: ['US'],
+      url: 'https://chase.com',
+      primary_color: '#005a2d',
+      logo: 'logo_url',
+      routing_numbers: ['021000021'],
+      status: {
+        item_logins: {
+          status: 'HEALTHY',
+          last_status_change: '2024-01-01T00:00:00Z',
+        },
+        transactions_updates: {
+          status: 'HEALTHY',
+          last_status_change: '2024-01-01T00:00:00Z',
+        },
+      },
+    },
+  },
+  
+  itemGet: {
+    item: {
+      item_id: 'item_1',
+      institution_id: 'ins_109508',
+      webhook: 'https://example.com/webhook',
+      error: null,
+      available_products: ['transactions', 'auth'],
+      billed_products: ['transactions'],
+      products: ['transactions'],
+      consented_products: ['transactions'],
+      consent_expiration_time: null,
+      update_type: 'background',
+    },
+  },
+  
+  itemRemove: {
+    removed: true,
+    request_id: 'req_123',
+  },
+  
+  identityGet: {
+    accounts: [
+      {
+        account_id: 'account_123',
+        name: 'Primary Checking',
+        type: 'depository',
+        subtype: 'checking',
+        balances: { current: 1500.00, available: 1450.00 },
+      },
+    ],
+    identity: [
+      {
+        account_id: 'acc_1',
+        owners: [
+          {
+            names: ['John Doe'],
+            phone_numbers: [
+              {
+                data: '+1-555-123-4567',
+                primary: true,
+                type: 'home',
+              },
+            ],
+            emails: [
+              {
+                data: 'john.doe@example.com',
+                primary: true,
+                type: 'primary',
+              },
+            ],
+            addresses: [
+              {
+                data: {
+                  street: '123 Main St',
+                  city: 'Anytown',
+                  region: 'NY',
+                  postal_code: '12345',
+                  country: 'US',
+                },
+                primary: true,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 };
 
 export const mockTransactionsSyncResponse = {
@@ -104,35 +265,6 @@ export const mockAccountsResponse = {
         class_type: null,
       },
     ],
-  },
-};
-
-export const mockAuthResponse = {
-  data: {
-    accounts: [
-      {
-        account_id: 'test_account_1',
-        name: 'Plaid Checking',
-        type: 'depository',
-        subtype: 'checking',
-        balances: {
-          available: 1000.00,
-          current: 1000.00,
-          limit: null,
-          iso_currency_code: 'USD',
-        },
-      },
-    ],
-    numbers: {
-      ach: [
-        {
-          account_id: 'test_account_1',
-          account: '1234567890',
-          routing: '011401533',
-          wire_routing: '021000021',
-        },
-      ],
-    },
   },
 };
 
