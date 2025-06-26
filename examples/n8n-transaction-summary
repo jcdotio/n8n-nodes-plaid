@@ -16,7 +16,7 @@
       "parameters": {
         "resource": "transaction",
         "operation": "sync",
-        "accessToken": "access-sandbox-725be19f-1795-4597-9256-e503fc903ae3",
+        "accessToken": "access-sandbox-replace-with-your-token",
         "cursor": "",
         "returnAll": false,
         "limit": 25,
