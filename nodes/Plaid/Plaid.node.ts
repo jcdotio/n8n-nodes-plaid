@@ -622,6 +622,7 @@ export class Plaid implements INodeType {
 		],
 	};
 
+	// eslint-disable-next-line no-unused-vars
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
